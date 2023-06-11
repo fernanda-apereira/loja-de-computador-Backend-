@@ -17,18 +17,14 @@ const userController = require("../controllers/userController.js");
 //Código principal
 const router = express.Router();
 
-// -=-=-=-  Rotas homepage -=-=-=-
-router.get("/", homeController.showHome);
-router.get("/busca", homeController.search); //Barra de pesquisa
-
 // -=-=-=-  Rotas produto -=-=-=-
 //get
-router.get("/departamento/:dep", productController.showByDepartament);
-router.get("/departamento/:dep/:subdep", productController.showByDepartament);
+router.get("/departamento/:dep", productController.sendByDepartament);
+router.get("/departamento/:dep/:subdep", productController.sendByDepartament);
 router.get("/produto/:id", productController.sendById);
 router.get("/enviarimagem/:id", productController.sendProductImage); // Envia img produto
-
-//post
+router.get("/busca", productController.searchProducts); //Barra de pesquisa
+//Criar produto
 router.post(
   "/criarproduto",
   auth,
@@ -36,7 +32,7 @@ router.post(
   validarProduto,
   productController.createProduct
 );
-//put
+//Editar produto
 router.put(
   "/produto/:id",
   auth,
@@ -44,22 +40,11 @@ router.put(
   validarProduto,
   productController.updateProduct
 );
-//delete
-router.delete("/produto/:id", productController.deleteProduct);
-
-// -=-=-=-  Rotas monteSeuPc -=-=-=-
-router.get("/monteseupc/:dep", monteSeuPcController.sendProductByDep);
-//Rota para enviar o produto
-router.get("/enviaprod/:id", productController.sendById);
-
-// -=-=-=- Rotas do carrinho -=-=-=-
-//carrinho usuário
-router.post("/carrinho/:id", auth, carrinhoController.adicionaProduto);
+//Deletar produto
+router.delete("/produto/:id", auth, productController.deleteProduct);
 
 // -=-=-=-  Rotas usuário -=-=-=-
 //Rota Cadastro
-
-//validações backend cadastro
 router.post("/cadastro", validarCadastro, userController.cadastro);
 //Rota Login
 router.post("/login", userController.login);
@@ -67,5 +52,14 @@ router.post("/login", userController.login);
 router.get("/logout", auth, userController.logOut);
 //Rota valida usuário
 router.get("/checar-autenticacao", auth, userController.checkAuth);
+
+// -=-=-=- Rotas do carrinho -=-=-=-
+//carrinho usuário
+router.post("/carrinho/:id", auth, carrinhoController.adicionaProduto);
+
+// -=-=-=-  Rotas monteSeuPc -=-=-=-
+router.get("/monteseupc/:dep", monteSeuPcController.sendProductByDep);
+//Rota para enviar o produto
+router.get("/enviaprod/:id", productController.sendById);
 
 module.exports = router;

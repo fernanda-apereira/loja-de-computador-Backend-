@@ -6,7 +6,7 @@ const { Op } = require("sequelize"); //Módulo de operadores sequelize
 
 //Models
 const productsData = require("../database/produtos.json");
-const { Produto, Imagem } = require("../models");
+const {Produto, Imagem} = require("../models");
 
 //Funções externas para o controller
 function formatImagesPath(filesArray) {
@@ -31,15 +31,16 @@ function deleteImages(imagesPaths) {
 
 const productController = {
   async sendById(req, res) {
+    const id_produto = Number(req.params.id);
+    
     try {
-      const id_produto = Number(req.params.id);
-      console.log(id_produto);
+    
       const targetProduct = await Produto.findOne({
         where: { id_produto },
         raw: true,
       });
 
-      if (targetProduct === null) res.status(404).render("404");
+      if (targetProduct === null) res.status(404).send("Produto não encontrado");
 
       //Faz o query das imagens
       const imagens = await Imagem.findAll({
@@ -55,7 +56,7 @@ const productController = {
     }
   },
 
-  async showByDepartament(req, res) {
+  async sendByDepartament(req, res) {
     const departNums = new Map([
       ["computadores", 1],
       ["hardware", 2],
@@ -123,20 +124,36 @@ const productController = {
       if (produtos.length == 0)
         throw new Error("Nenhum produto encontrado nesse departamento");
 
-      //Faz o query das imagens
-      for (const p of produtos) {
-        const img = await Imagem.findOne({
-          where: { id_produto: p.id_produto },
-          raw: true,
-        });
-        const produto = produtos.find((p) => p.id_produto === img.id_produto);
-        produto.Imagem = img;
-      }
-
       res.status(200).json(produtos);
     } catch (error) {
       console.error(error);
       res.status(400).json({ error });
+    }
+  },
+
+  async searchProducts(req, res) {
+    let search = req.query.keywords
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w\s]/g, "");
+
+    try {
+      const productsToSearch = await Produto.findAll({
+        where: {
+          nome: {
+            [Op.substring]: search,
+          },
+        },
+        raw: true,
+      });
+
+      if (productsToSearch.length === 0) res.status(404).render("404");
+
+      res.status(200).json(productsToSearch);
+    } catch (error) {
+      console.error(error);
+      res.status(404).send("Nenhum produto encontrado");
     }
   },
 
@@ -153,6 +170,7 @@ const productController = {
 
   //CRUDS POST, PUT, DELETE
   async createProduct(req, res) {
+    
     const errorsVal = validationResult(req);
 
     //Adiciona o caminho das imagens no banco
@@ -201,17 +219,15 @@ const productController = {
         } catch (error) {
           console.error(error);
 
-          return res.render("adicionarProduto", {
-            error: "Erro ao adicionar imagens",
-          });
+          return res.status(400).json({msg: "Erro ao adicionar imagens"});
         }
       }
+
+      return res.status(200).json({msg: "Produto criado com sucesso"});
     } catch (error) {
       console.error(error);
 
-      return res.render("adicionarProduto", {
-        error: "Produto não adicionado",
-      });
+      return res.status(400).json(error);
     }
   },
 
@@ -221,21 +237,20 @@ const productController = {
     try {
       const id = Number(req.params.id);
 
+      //Puxa os dados originais do produto
       const dadosProduto = await Produto.findOne({
         where: { id_produto: id },
         raw: true,
       });
 
-      const errorsVal = validationResult(req);
-      const caminhoImagens = formatImagesPath(req.files);
+      const errorsVal = validationResult(req);//Pega os erros do express validator
 
+      const caminhoImagens = formatImagesPath(req.files); //Formata o caminho as imagens que vieram no request
+
+      //Caso tenha erros
       if (!errorsVal.isEmpty()) {
-        console.log(errorsVal.mapped());
         deleteImages(caminhoImagens);
-        return res.render("adicionarProduto", {
-          errorsVal: errorsVal.mapped(),
-          produto: dadosProduto,
-        });
+        return res.status(400).json({errors: errorsVal.mapped()});
       }
 
       if (!dadosProduto) throw new Error("Produto não encontrado");
@@ -269,7 +284,6 @@ const productController = {
         });
 
         //Adiciona as imagens do produto no banco
-
         for (let img of caminhoImagens) {
           await Imagem.create({
             id_produto: id,
@@ -278,10 +292,10 @@ const productController = {
         }
       }
 
-      res.redirect(301, `/editarproduto/${id}`);
+      res.status(200).json({msg:"Produto editado com sucesso", sucess:true});
     } catch (error) {
       console.log(error);
-      res.send("Produto não editado, tente novamente mais tarde");
+      res.status(400).json({error});
     }
 
     /*
@@ -310,10 +324,10 @@ const productController = {
         where: { id_produto: id },
       });
 
-      res.send("deletado");
+      res.status(200).json({msg:"Produto deletado com sucesso"});
     } catch (error) {
       console.log(error);
-      res.send("erro");
+      res.status(401).json(error);
     }
   },
 };

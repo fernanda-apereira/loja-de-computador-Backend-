@@ -10,9 +10,10 @@ const { Usuario, Endereco, Carrinho} = require("../models");
 const userController = {
 
   async cadastro(req, res) {
+    // -=-=-=- VERIFICAÇÃO DE ERROS -=-=-=-
+    
     //Fazer as validações do express validator aqui
-    const errors = validationResult(req);
-
+    const errorsVal = validationResult(req);
     //Verifica se o email e o cpf já existem
     const userExist = await Usuario.findOne({
       where: { email: req.body.email },
@@ -20,67 +21,73 @@ const userController = {
     const cpfExist = await Usuario.findOne({ where: { cpf: req.body.cpf } });
 
     if (userExist) {
-      errors.errors.push({ msg: "Email já existente" });
+      errorsVal.errors.push({ msg: "Email já existente" });
     }
+
     if (cpfExist) {
-      errors.errors.push({ msg: "CPF já existente" });
+      errorsVal.errors.push({ msg: "CPF já existente" });
     }
-
+    console.log(errorsVal.errors);
     //Verifica se existem erros no express validator
-    if (!errors.isEmpty()) {
-      return res.render("cadastro", { errors: errors.mapped() });
+    if (!errorsVal.isEmpty()) {
+      return res.status(400).json(errorsVal.errors);
     }
 
-    //Cria o cadastro caso não tenha erros
+    // -=-=-=- CRIAÇÃO DO CADASTRO -=-=-=-
+    try {
+      
+      const {
+        nome,
+        email,
+        cpf,
+        data_nasc,
+        telefone,
+        cep,
+        rua,
+        numero,
+        complemento,
+        bairro,
+        cidade,
+        estado,
+        senha,
+      } = req.body;
+  
+      const userInfo = {
+        nome,
+        email,
+        cpf,
+        data_nasc,
+        telefone,
+        senha: bcrypt.hashSync(senha, 10), //Faz o hash da senha
+        adm: 0,
+      };
 
-    const {
-      nome,
-      email,
-      cpf,
-      data_nasc,
-      telefone,
-      cep,
-      rua,
-      numero,
-      complemento,
-      bairro,
-      cidade,
-      estado,
-      senha,
-    } = req.body;
+      //Cria o usuário e pega o ID dele
+      const {dataValues:{id_usuario}} =  await Usuario.create(userInfo);
+  
+      const userAdress = {
+        id_usuario,
+        cep,
+        rua,
+        numero,
+        complemento,
+        bairro,
+        cidade,
+        estado,
+      };
+  
+      //Cria a fileira do endereço daquele usuário
+      await Endereco.create(userAdress);
+      //Cria o carrinho do usuário
+      await Carrinho.create({
+        id_usuario,
+      })
 
-    const userInfo = {
-      nome,
-      email,
-      cpf,
-      data_nasc,
-      telefone,
-      senha: bcrypt.hashSync(senha, 10), //Faz o hash da senha
-      adm: 0,
-    };
+      res.status(200).json({msg:"usuário criado com sucesso" });
+    } catch (error) {
+      res.status(400).json(error);
+    }
 
-   
-
-    //Pega o ID do usuário criado através do email
-    const {dataValues:{id_usuario}} =  await Usuario.create(userInfo);
-
-    const userAdress = {
-      id_usuario,
-      cep,
-      rua,
-      numero,
-      complemento,
-      bairro,
-      cidade,
-      estado,
-    };
-
-    //Cria a fileira do endereço daquele usuário
-    await Endereco.create(userAdress);
-    await Carrinho.create({
-      id_usuario,
-    })
-    res.redirect("/login");
   },
   
   async login(req, res) {
@@ -117,7 +124,8 @@ const userController = {
     }
     
   },
-
+  
+  // A ver como vai funcionar no react
   logOut(req, res) {
     // req.session.destroy();
     res.clearCookie("token");
@@ -133,10 +141,7 @@ const userController = {
     res.json(false);
   },
   
-  //Perfil usuário
-  async sendUserInfo(req, res) {
 
-  },
 
 };
 
